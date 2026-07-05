@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 
 #include "raylib.h"
 #include "raymath.h"
@@ -83,7 +84,7 @@ void updatePosition(Camera& camera, InputState& input, float yaw, float dt)
   camera.position.z += movement.z * moveSpeed * dt;
 }
 
-void updateShooting(Camera& camera, InputState& input, BoundingBox& targetBox)
+void updateShooting(Camera& camera, InputState& input, std::vector<Box>& boxes)
 {
   if (!input.shoot) return;
 
@@ -92,8 +93,17 @@ void updateShooting(Camera& camera, InputState& input, BoundingBox& targetBox)
   ray.direction =
       Vector3Normalize(Vector3Subtract(camera.target, camera.position));
 
-  RayCollision collision = GetRayCollisionBox(ray, targetBox);
-  if (collision.hit) std::cout << "HIT!" << std::endl;
+  for (auto it = boxes.begin(); it != boxes.end(); ++it)
+  {
+
+    RayCollision collision = GetRayCollisionBox(ray, it->getBoundingBox());
+
+    if (collision.hit)
+    {
+      boxes.erase(it);
+      break;
+    }
+  }
 }
 
 void drawCrosshair()
@@ -104,6 +114,40 @@ void drawCrosshair()
            (SCREEN_WIDTH / 2) + size, (SCREEN_HEIGHT / 2), BLACK);
   DrawLine((SCREEN_WIDTH / 2), (SCREEN_HEIGHT / 2) - size, (SCREEN_WIDTH / 2),
            (SCREEN_HEIGHT / 2) + size, BLACK);
+}
+
+
+class Box
+{
+private:
+  Vector3 position;
+  Vector3 size;
+  BoundingBox bbox;
+  Color color;
+
+public:
+  Box(Vector3 position, Vector3 size, Color color);
+  BoundingBox getBoundingBox();
+  void draw();
+  ~Box();
+};
+
+Box::Box(Vector3 position, Vector3 size, Color color)
+    : position(position), size(size), color(color)
+{
+  Vector3 halfSize = Vector3Scale(size, 0.5f);
+  bbox.min = Vector3Subtract(position, halfSize);
+  bbox.max = Vector3Add(position, halfSize);
+}
+
+BoundingBox Box::getBoundingBox()
+{
+  return bbox;
+}
+
+void Box::draw()
+{
+  DrawCube(position, size.x, size.y, size.z, color);
 }
 
 int main()
@@ -126,26 +170,23 @@ int main()
   float dt = 0.0f;
 
 
+  Box redBox({0.0f, 1.0f, 0.0f}, {2.0f, 2.0f, 2.0f}, RED);
+  Box blueBox({4.0f, 1.5f, -1.0f}, {2.0f, 2.0f, 2.0f}, BLUE);
+
+  std::vector<Box> boxes;
+  boxes.push_back(redBox);
+  boxes.push_back(blueBox);
+
+
   while (!WindowShouldClose())
   {
     dt = GetFrameTime();
     input.gatherInput();
 
-    Vector3 redBox;
-    redBox.x = 0.0f;
-    redBox.y = 1.0f;
-    redBox.z = 0.0f;
-    float redBoxSize = 2.0f;
-
-    BoundingBox box;
-    box.min = (Vector3){redBox.x - redBoxSize / 2, redBox.y - redBoxSize / 2,
-                        redBox.z - redBoxSize / 2};
-    box.max =
-        Vector3Add(box.min, (Vector3){redBoxSize, redBoxSize, redBoxSize});
 
     updateLook(camera, input, yaw, pitch);
     updatePosition(camera, input, yaw, dt);
-    updateShooting(camera, input, box);
+    updateShooting(camera, input, boxes);
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
@@ -154,7 +195,8 @@ int main()
     BeginMode3D(camera);
 
     DrawPlane((Vector3){0.0f, 0.0f, 0.0f}, (Vector2){20.0f, 20.0f}, LIGHTGRAY);
-    DrawCube(redBox, redBoxSize, redBoxSize, redBoxSize, RED);
+    redBox.draw();
+    blueBox.draw();
     DrawCubeWires((Vector3){0.0f, 1.0f, 0.0f}, 2.0f, 2.0f, 2.0f, MAROON);
     DrawGrid(20, 1.0f);
     EndMode3D();
