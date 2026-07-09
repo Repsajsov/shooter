@@ -1,18 +1,17 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
 #include "raylib.h"
 #include "raymath.h"
+#include "rlgl.h"
 
-int const SCREEN_WIDTH = 800;
-int const SCREEN_HEIGHT = 450;
+int const SCREEN_WIDTH = 1600;
+int const SCREEN_HEIGHT = 900;
+int const DAMAGE_PER_HIT = 20;
 
 struct InputState
 {
-  bool moveForward;
-  bool moveBack;
-  bool moveLeft;
-  bool moveRight;
   Vector2 mouseDelta;
   bool shoot;
 
@@ -21,10 +20,6 @@ struct InputState
 
 void InputState::gatherInput()
 {
-  moveForward = IsKeyDown(KEY_W);
-  moveBack = IsKeyDown(KEY_S);
-  moveLeft = IsKeyDown(KEY_A);
-  moveRight = IsKeyDown(KEY_Q);
   mouseDelta = GetMouseDelta();
   shoot = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
@@ -49,42 +44,100 @@ void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
   camera.target.z = camera.position.z + forward.z;
 }
 
-void updatePosition(Camera& camera, InputState& input, float yaw, float dt)
+class Target
 {
-  float moveSpeed = 5.0f;
+private:
+  Vector3 position;
+  Vector3 radii;
+  Color color;
+  int health;
+  int maxHealth;
 
-  Vector3 moveForward = {sinf(yaw), 0.0f, cosf(yaw)};
-  Vector3 up = {0.0f, 1.0f, 0.0f};
-  Vector3 moveRight = Vector3Normalize(Vector3CrossProduct(moveForward, up));
+public:
+  Target(Vector3 position, Vector3 radii, Color color, int health)
+      : position(position), radii(radii), color(color), health(health),
+        maxHealth(health)
+  {
+  }
 
-  Vector3 movement = {};
-  if (input.moveForward)
+  Target(Vector3 position, float radius, Color color, int health)
+      : position(position), radii((Vector3){radius, radius, radius}),
+        color(color), health(health), maxHealth(health)
   {
-    movement.x += moveForward.x;
-    movement.z += moveForward.z;
   }
-  if (input.moveBack)
-  {
-    movement.x -= moveForward.x;
-    movement.z -= moveForward.z;
-  }
-  if (input.moveLeft)
-  {
-    movement.x -= moveRight.x;
-    movement.z -= moveRight.z;
-  }
-  if (input.moveRight)
-  {
-    movement.x += moveRight.x;
-    movement.z += moveRight.z;
-  }
-  movement = Vector3Normalize(movement);
 
-  camera.position.x += movement.x * moveSpeed * dt;
-  camera.position.z += movement.z * moveSpeed * dt;
+  RayCollision getCollision(const Ray& ray) const
+  {
+    Ray localRay;
+    localRay.position = {(ray.position.x - position.x) / radii.x,
+                         (ray.position.y - position.y) / radii.y,
+                         (ray.position.z - position.z) / radii.z};
+
+    localRay.direction = {ray.direction.x / radii.x, ray.direction.y / radii.y,
+                          ray.direction.z / radii.z};
+    localRay.direction =
+        Vector3Normalize(localRay.direction); // <- deze regel toevoegen
+
+    RayCollision collision =
+        GetRayCollisionSphere(localRay, Vector3{0, 0, 0}, 1.0f);
+
+    if (collision.hit)
+    {
+      collision.point = {collision.point.x * radii.x + position.x,
+                         collision.point.y * radii.y + position.y,
+                         collision.point.z * radii.z + position.z};
+    }
+    return collision;
+  }
+
+  void draw() const
+  {
+    Color displayColor =
+        ColorLerp(GRAY, color, (float)health / (float)maxHealth);
+
+    rlPushMatrix();
+    rlTranslatef(position.x, position.y, position.z);
+    rlScalef(radii.x, radii.y, radii.z);
+    DrawSphere(Vector3{0, 0, 0}, 1.0f, displayColor);
+    rlPopMatrix();
+  }
+
+  void takeDamage(int amount)
+  {
+    health -= amount;
+  }
+  bool isDead() const
+  {
+    return health <= 0;
+  }
+};
+
+struct HitResult
+{
+  int index;
+  float distance;
+};
+
+std::vector<HitResult> getSortedHits(const Ray& ray,
+                                     std::vector<Target>& targets)
+{
+  std::vector<HitResult> hits;
+  for (int i = 0; i < (int)targets.size(); i++)
+  {
+    RayCollision collision = targets[i].getCollision(ray);
+    if (collision.hit)
+    {
+      float worldDistance = Vector3Distance(ray.position, collision.point);
+      hits.push_back({i, worldDistance});
+    }
+  }
+  std::sort(hits.begin(), hits.end(), [](const HitResult& a, const HitResult& b)
+            { return a.distance < b.distance; });
+  return hits;
 }
 
-void updateShooting(Camera& camera, InputState& input, std::vector<Box>& boxes)
+void updateShooting(Camera& camera, InputState& input,
+                    std::vector<Target>& targets)
 {
   if (!input.shoot) return;
 
@@ -93,17 +146,19 @@ void updateShooting(Camera& camera, InputState& input, std::vector<Box>& boxes)
   ray.direction =
       Vector3Normalize(Vector3Subtract(camera.target, camera.position));
 
-  for (auto it = boxes.begin(); it != boxes.end(); ++it)
+  auto hits = getSortedHits(ray, targets);
+  if (hits.empty()) return;
+
+  int closestIndex = hits.front().index;
+  targets[closestIndex].takeDamage(DAMAGE_PER_HIT);
+
+  if (targets[closestIndex].isDead())
   {
-
-    RayCollision collision = GetRayCollisionBox(ray, it->getBoundingBox());
-
-    if (collision.hit)
-    {
-      boxes.erase(it);
-      break;
-    }
+    targets[closestIndex] = targets.back();
+    targets.pop_back();
   }
+
+  std::cout << "HIT\n";
 }
 
 void drawCrosshair()
@@ -114,40 +169,6 @@ void drawCrosshair()
            (SCREEN_WIDTH / 2) + size, (SCREEN_HEIGHT / 2), BLACK);
   DrawLine((SCREEN_WIDTH / 2), (SCREEN_HEIGHT / 2) - size, (SCREEN_WIDTH / 2),
            (SCREEN_HEIGHT / 2) + size, BLACK);
-}
-
-
-class Box
-{
-private:
-  Vector3 position;
-  Vector3 size;
-  BoundingBox bbox;
-  Color color;
-
-public:
-  Box(Vector3 position, Vector3 size, Color color);
-  BoundingBox getBoundingBox();
-  void draw();
-  ~Box();
-};
-
-Box::Box(Vector3 position, Vector3 size, Color color)
-    : position(position), size(size), color(color)
-{
-  Vector3 halfSize = Vector3Scale(size, 0.5f);
-  bbox.min = Vector3Subtract(position, halfSize);
-  bbox.max = Vector3Add(position, halfSize);
-}
-
-BoundingBox Box::getBoundingBox()
-{
-  return bbox;
-}
-
-void Box::draw()
-{
-  DrawCube(position, size.x, size.y, size.z, color);
 }
 
 int main()
@@ -167,38 +188,29 @@ int main()
 
   float yaw = 0.0f;
   float pitch = 0.0f;
-  float dt = 0.0f;
 
-
-  Box redBox({0.0f, 1.0f, 0.0f}, {2.0f, 2.0f, 2.0f}, RED);
-  Box blueBox({4.0f, 1.5f, -1.0f}, {2.0f, 2.0f, 2.0f}, BLUE);
-
-  std::vector<Box> boxes;
-  boxes.push_back(redBox);
-  boxes.push_back(blueBox);
-
+  std::vector<Target> targets;
+  targets.push_back(Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
+  targets.push_back(
+      Target(Vector3{4.0f, 1.5f, -1.0f}, Vector3{0.5f, 1.0f, 0.5f}, BLUE, 100));
+  targets.push_back(Target(Vector3{-3.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
 
   while (!WindowShouldClose())
   {
-    dt = GetFrameTime();
     input.gatherInput();
 
-
     updateLook(camera, input, yaw, pitch);
-    updatePosition(camera, input, yaw, dt);
-    updateShooting(camera, input, boxes);
+    updateShooting(camera, input, targets);
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
-
     BeginMode3D(camera);
 
     DrawPlane((Vector3){0.0f, 0.0f, 0.0f}, (Vector2){20.0f, 20.0f}, LIGHTGRAY);
-    redBox.draw();
-    blueBox.draw();
-    DrawCubeWires((Vector3){0.0f, 1.0f, 0.0f}, 2.0f, 2.0f, 2.0f, MAROON);
     DrawGrid(20, 1.0f);
+    for (Target& target : targets) target.draw();
+
     EndMode3D();
     drawCrosshair();
 
