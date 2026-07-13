@@ -5,10 +5,14 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+#include "target.h"
 
 int const SCREEN_WIDTH = 1600;
 int const SCREEN_HEIGHT = 900;
 int const DAMAGE_PER_HIT = 20;
+int const FPS = 144;
+int const FOV = 75;
+
 
 struct InputState
 {
@@ -17,6 +21,7 @@ struct InputState
 
   void gatherInput();
 };
+
 
 void InputState::gatherInput()
 {
@@ -44,73 +49,6 @@ void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
   camera.target.z = camera.position.z + forward.z;
 }
 
-class Target
-{
-private:
-  Vector3 position;
-  Vector3 radii;
-  Color color;
-  int health;
-  int maxHealth;
-
-public:
-  Target(Vector3 position, Vector3 radii, Color color, int health)
-      : position(position), radii(radii), color(color), health(health),
-        maxHealth(health)
-  {
-  }
-
-  Target(Vector3 position, float radius, Color color, int health)
-      : position(position), radii((Vector3){radius, radius, radius}),
-        color(color), health(health), maxHealth(health)
-  {
-  }
-
-  RayCollision getCollision(const Ray& ray) const
-  {
-    Ray localRay;
-    localRay.position = {(ray.position.x - position.x) / radii.x,
-                         (ray.position.y - position.y) / radii.y,
-                         (ray.position.z - position.z) / radii.z};
-
-    localRay.direction = {ray.direction.x / radii.x, ray.direction.y / radii.y,
-                          ray.direction.z / radii.z};
-    localRay.direction =
-        Vector3Normalize(localRay.direction); // <- deze regel toevoegen
-
-    RayCollision collision =
-        GetRayCollisionSphere(localRay, Vector3{0, 0, 0}, 1.0f);
-
-    if (collision.hit)
-    {
-      collision.point = {collision.point.x * radii.x + position.x,
-                         collision.point.y * radii.y + position.y,
-                         collision.point.z * radii.z + position.z};
-    }
-    return collision;
-  }
-
-  void draw() const
-  {
-    Color displayColor =
-        ColorLerp(GRAY, color, (float)health / (float)maxHealth);
-
-    rlPushMatrix();
-    rlTranslatef(position.x, position.y, position.z);
-    rlScalef(radii.x, radii.y, radii.z);
-    DrawSphere(Vector3{0, 0, 0}, 1.0f, displayColor);
-    rlPopMatrix();
-  }
-
-  void takeDamage(int amount)
-  {
-    health -= amount;
-  }
-  bool isDead() const
-  {
-    return health <= 0;
-  }
-};
 
 struct HitResult
 {
@@ -174,7 +112,7 @@ void drawCrosshair()
 int main()
 {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "shooter");
-  SetTargetFPS(144);
+  SetTargetFPS(FPS);
   DisableCursor();
 
   InputState input;
@@ -183,7 +121,7 @@ int main()
   camera.position = (Vector3){0.0f, 1.0f, 10.0f};
   camera.target = (Vector3){0.0f, 2.0f, 0.0f};
   camera.up = (Vector3){0.0f, 1.0f, 0.0f};
-  camera.fovy = 75.0f;
+  camera.fovy = FOV;
   camera.projection = CAMERA_PERSPECTIVE;
 
   float yaw = 0.0f;
@@ -191,9 +129,9 @@ int main()
 
   std::vector<Target> targets;
   targets.push_back(Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
-  targets.push_back(
-      Target(Vector3{4.0f, 1.5f, -1.0f}, Vector3{0.5f, 1.0f, 0.5f}, BLUE, 100));
-  targets.push_back(Target(Vector3{-3.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
+  targets.push_back(Target(Vector3{3.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
+  targets.push_back(Target(Vector3{6.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
+  targets.push_back(Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
 
   while (!WindowShouldClose())
   {
