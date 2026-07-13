@@ -2,32 +2,13 @@
 #include <iostream>
 #include <vector>
 
+#include "config.h"
+#include "input.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
 #include "target.h"
 
-int const SCREEN_WIDTH = 1600;
-int const SCREEN_HEIGHT = 900;
-int const DAMAGE_PER_HIT = 20;
-int const FPS = 144;
-int const FOV = 75;
-
-
-struct InputState
-{
-  Vector2 mouseDelta;
-  bool shoot;
-
-  void gatherInput();
-};
-
-
-void InputState::gatherInput()
-{
-  mouseDelta = GetMouseDelta();
-  shoot = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-}
 
 void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
 {

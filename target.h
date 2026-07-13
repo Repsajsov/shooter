@@ -1,3 +1,6 @@
+#ifndef TARGET_H
+#define TARGET_H
+
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
@@ -20,3 +23,5 @@ public:
   void takeDamage(int amount);
   bool isDead() const;
 };
+
+#endif
