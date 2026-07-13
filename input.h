@@ -7,6 +7,7 @@ struct InputState
 {
   Vector2 mouseDelta;
   bool shoot;
+  bool modeSwitch;
 
   void gatherInput();
 };

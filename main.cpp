@@ -10,6 +10,13 @@
 #include "target.h"
 
 
+enum class Mode
+{
+  EDIT,
+  PLAY
+};
+
+
 void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
 {
   float mouseSensitivity = 0.003f;
@@ -54,7 +61,6 @@ std::vector<HitResult> getSortedHits(const Ray& ray,
             { return a.distance < b.distance; });
   return hits;
 }
-
 void updateShooting(Camera& camera, InputState& input,
                     std::vector<Target>& targets)
 {
@@ -90,8 +96,31 @@ void drawCrosshair()
            (SCREEN_HEIGHT / 2) + size, BLACK);
 }
 
+void updateMode(Mode& mode, InputState& input)
+{
+  if (input.modeSwitch)
+  {
+    mode = (mode == Mode::PLAY) ? Mode::EDIT : Mode::PLAY;
+    if (mode == Mode::PLAY) DisableCursor();
+    else EnableCursor();
+  }
+}
+
+void update(Mode& mode, Camera& camera, InputState& input, float& yaw,
+            float& pitch, std::vector<Target>& targets)
+{
+  updateMode(mode, input);
+  if (mode == Mode::PLAY)
+  {
+    updateLook(camera, input, yaw, pitch);
+    updateShooting(camera, input, targets);
+  }
+}
+
 int main()
 {
+  // stuff before gameloop
+  Mode mode = Mode::PLAY;
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "shooter");
   SetTargetFPS(FPS);
   DisableCursor();
@@ -109,18 +138,20 @@ int main()
   float pitch = 0.0f;
 
   std::vector<Target> targets;
-  targets.push_back(Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
-  targets.push_back(Target(Vector3{3.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
-  targets.push_back(Target(Vector3{6.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
-  targets.push_back(Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 100));
+  targets.push_back(Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
+  targets.push_back(Target(Vector3{3.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
+  targets.push_back(Target(Vector3{6.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
+  targets.push_back(Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
 
   while (!WindowShouldClose())
   {
+    // inputs
     input.gatherInput();
 
-    updateLook(camera, input, yaw, pitch);
-    updateShooting(camera, input, targets);
+    // update
+    update(mode, camera, input, yaw, pitch, targets);
 
+    // draw
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
