@@ -117,6 +117,14 @@ void update(Mode& mode, Camera& camera, InputState& input, float& yaw,
   }
 }
 
+float horizontalToVerticalFOV(float hFOVDegrees, float aspectRatio)
+{
+  float hFOVRadians = hFOVDegrees * DEG2RAD;
+  float vFOVRadians = 2.0f * atanf(tanf(hFOVRadians / 2.0f) / aspectRatio);
+  return vFOVRadians * RAD2DEG;
+}
+
+
 int main()
 {
   // stuff before gameloop
@@ -131,7 +139,7 @@ int main()
   camera.position = (Vector3){0.0f, 1.0f, 10.0f};
   camera.target = (Vector3){0.0f, 2.0f, 0.0f};
   camera.up = (Vector3){0.0f, 1.0f, 0.0f};
-  camera.fovy = FOV;
+  camera.fovy = horizontalToVerticalFOV(FOV, ASPECT_RATIO);
   camera.projection = CAMERA_PERSPECTIVE;
 
   float yaw = 0.0f;

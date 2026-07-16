@@ -7,4 +7,6 @@ int constexpr DAMAGE_PER_HIT = 20;
 int constexpr FPS = 144;
 int constexpr FOV = 120;
 
+float constexpr ASPECT_RATIO = (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT;
+
 #endif
