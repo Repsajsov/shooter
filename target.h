@@ -21,8 +21,8 @@ struct Behaviour
   Vector3 direction;
   float speed;
 
-  // moeten nog factory constructors bijv Behaviour::LINEAR, Behaviour::STATIC,
-  // ...
+  static Behaviour STATIC(float duration);
+  static Behaviour LINEAR(float duration, Vector3 direction, float speed);
 };
 
 class Routine
@@ -52,8 +52,10 @@ private:
   Routine routine;
 
 public:
-  Target(Vector3 position, Vector3 radii, Color color, int health);
-  Target(Vector3 position, float radius, Color color, int health);
+  Target(Vector3 position, Vector3 radii, Color color, int health,
+         Routine routine);
+  Target(Vector3 position, float radius, Color color, int health,
+         Routine routine);
   RayCollision getCollision(const Ray& ray) const;
   void draw() const;
   void takeDamage(int amount);

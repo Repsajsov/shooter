@@ -146,10 +146,19 @@ int main()
   float pitch = 0.0f;
 
   std::vector<Target> targets;
-  targets.push_back(Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
-  targets.push_back(Target(Vector3{3.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
-  targets.push_back(Target(Vector3{6.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
-  targets.push_back(Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 10));
+  targets.push_back(
+      Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
+  targets.push_back(
+      Target(Vector3{3.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
+  targets.push_back(
+      Target(Vector3{6.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
+  targets.push_back(
+      Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
+
+  targets.push_back(
+      Target(Vector3{-3.0f, 1.0f, 0.0f}, 1.0f, BLUE, 10,
+             Routine{Behaviour::STATIC(1.0f),
+                     Behaviour::LINEAR(5.0f, Vector3{1, 0.39, 0}, 5.0f)}));
 
   while (!WindowShouldClose())
   {
@@ -157,7 +166,9 @@ int main()
     input.gatherInput();
 
     // update
+    float dt = GetFrameTime();
     update(mode, camera, input, yaw, pitch, targets);
+    for (Target& target : targets) target.update(dt);
 
     // draw
     BeginDrawing();

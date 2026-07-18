@@ -1,5 +1,14 @@
 #include "target.h"
 
+Behaviour Behaviour::STATIC(float duration)
+{
+  return Behaviour{BehaviourType::STATIC, duration, Vector3{0, 0, 0}, 0.0f};
+}
+
+Behaviour Behaviour::LINEAR(float duration, Vector3 direction, float speed)
+{
+  return Behaviour{BehaviourType::LINEAR, duration, direction, speed};
+}
 
 Routine::Routine() : steps(), currentIndex(0), timeInStep(0.0f)
 
@@ -37,16 +46,18 @@ Vector3 Routine::computePosition(Vector3 basePosition) const
   return basePosition;
 }
 
-Target::Target(Vector3 position, Vector3 radii, Color color, int health)
+Target::Target(Vector3 position, Vector3 radii, Color color, int health,
+               Routine routine)
     : basePosition(position), position(position), radii(radii), color(color),
-      health(health), maxHealth(health)
+      health(health), maxHealth(health), routine(routine)
 {
 }
 
-Target::Target(Vector3 position, float radii, Color color, int health)
+Target::Target(Vector3 position, float radii, Color color, int health,
+               Routine routine)
     : basePosition(position), position(position),
       radii((Vector3){radii, radii, radii}), color(color), health(health),
-      maxHealth(health)
+      maxHealth(health), routine(routine)
 {
 }
 
