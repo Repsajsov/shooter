@@ -47,3 +47,10 @@ Vector3 Routine::computePosition(Vector3 position, float dt) const
   }
   return position;
 }
+
+void Routine::reflectCurrentDirection(Vector3 normal)
+{
+  if (steps.empty()) return;
+  Behaviour& step = steps[currentIndex];
+  step.direction = reflect(step.direction, normal);
+}

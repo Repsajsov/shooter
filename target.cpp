@@ -28,8 +28,13 @@ bool Target::isDead() const
   return health <= 0;
 }
 
-void Target::update(float dt)
+void Target::update(float dt, const std::vector<Plane>& bounds)
 {
   routine.update(dt);
   position = routine.computePosition(position, dt);
+  for (const Plane& plane : bounds)
+  {
+    if (isOutsideBounds(position, radius, plane))
+      routine.reflectCurrentDirection(plane.normal);
+  }
 }

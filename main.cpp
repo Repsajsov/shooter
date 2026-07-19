@@ -145,6 +145,19 @@ int main()
   float yaw = 0.0f;
   float pitch = 0.0f;
 
+
+  // room
+  std::vector<Plane> roomBounds = {
+      {Vector3{0, 0, 0}, Vector3{0, 1, 0}},
+      {Vector3{0, 10, 0}, Vector3{0, -1, 0}},
+      {Vector3{-10, 0, 0}, Vector3{1, 0, 0}},
+      {Vector3{10, 0, 0}, Vector3{-1, 0, 0}},
+      {Vector3{0, 0, -10}, Vector3{0, 0, 1}},
+      {Vector3{0, 0, 10}, Vector3{0, 0, -1}},
+  };
+
+
+  // targets
   std::vector<Target> targets;
   targets.push_back(
       Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
@@ -176,7 +189,7 @@ int main()
     // update
     float dt = GetFrameTime();
     update(mode, camera, input, yaw, pitch, targets);
-    for (Target& target : targets) target.update(dt);
+    for (Target& target : targets) target.update(dt, roomBounds);
 
     // draw
     BeginDrawing();

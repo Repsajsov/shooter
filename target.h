@@ -24,7 +24,7 @@ public:
   void draw() const;
   void takeDamage(int amount);
   bool isDead() const;
-  void update(float dt);
+  void update(float dt, const std::vector<Plane>& bounds);
 };
 
 #endif
