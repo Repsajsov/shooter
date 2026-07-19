@@ -1,96 +1,21 @@
 #include "target.h"
 
-Behaviour Behaviour::STATIC(float duration)
-{
-  return Behaviour{BehaviourType::STATIC, duration, Vector3{0, 0, 0}, 0.0f};
-}
-
-Behaviour Behaviour::LINEAR(float duration, Vector3 direction, float speed)
-{
-  return Behaviour{BehaviourType::LINEAR, duration, direction, speed};
-}
-
-Routine::Routine() : steps(), currentIndex(0), timeInStep(0.0f)
-
-{
-}
-
-Routine::Routine(std::initializer_list<Behaviour> steps)
-    : steps(steps), currentIndex(0), timeInStep(0.0f)
-{
-}
-
-void Routine::update(float dt)
-{
-  if (steps.empty()) return;
-  timeInStep += dt;
-  if (timeInStep >= steps[currentIndex].duration)
-  {
-    timeInStep = 0;
-    currentIndex = (currentIndex + 1) % steps.size();
-  }
-}
-
-Vector3 Routine::computePosition(Vector3 basePosition) const
-{
-  if (steps.empty()) return basePosition;
-  const Behaviour& step = steps[currentIndex];
-  switch (step.type)
-  {
-  case BehaviourType::STATIC:
-    return basePosition;
-  case BehaviourType::LINEAR:
-    return Vector3Add(basePosition,
-                      Vector3Scale(step.direction, timeInStep * step.speed));
-  }
-  return basePosition;
-}
-
-Target::Target(Vector3 position, Vector3 radii, Color color, int health,
+Target::Target(Vector3 position, float radius, Color color, int health,
                Routine routine)
-    : basePosition(position), position(position), radii(radii), color(color),
+    : basePosition(position), position(position), radius(radius), color(color),
       health(health), maxHealth(health), routine(routine)
-{
-}
-
-Target::Target(Vector3 position, float radii, Color color, int health,
-               Routine routine)
-    : basePosition(position), position(position),
-      radii((Vector3){radii, radii, radii}), color(color), health(health),
-      maxHealth(health), routine(routine)
 {
 }
 
 RayCollision Target::getCollision(const Ray& ray) const
 {
-  Ray localRay;
-  localRay.position = {(ray.position.x - position.x) / radii.x,
-                       (ray.position.y - position.y) / radii.y,
-                       (ray.position.z - position.z) / radii.z};
-
-  localRay.direction = Vector3Normalize((Vector3){ray.direction.x / radii.x,
-                                                  ray.direction.y / radii.y,
-                                                  ray.direction.z / radii.z});
-  RayCollision collision =
-      GetRayCollisionSphere(localRay, Vector3{0, 0, 0}, 1.0f);
-
-  if (collision.hit)
-  {
-    collision.point = {collision.point.x * radii.x + position.x,
-                       collision.point.y * radii.y + position.y,
-                       collision.point.z * radii.z + position.z};
-  }
-  return collision;
+  return GetRayCollisionSphere(ray, position, radius);
 }
 
 void Target::draw() const
 {
   Color displayColor = ColorLerp(GRAY, color, (float)health / (float)maxHealth);
-  rlPushMatrix();
-  rlTranslatef(position.x, position.y, position.z);
-  rlScalef(radii.x, radii.y, radii.z);
-  DrawSphere(Vector3{0, 0, 0}, 1.0f, displayColor);
-  rlPopMatrix();
+  DrawSphere(position, radius, displayColor);
 }
 
 void Target::takeDamage(int amount)
@@ -106,5 +31,5 @@ bool Target::isDead() const
 void Target::update(float dt)
 {
   routine.update(dt);
-  position = routine.computePosition(basePosition);
+  position = routine.computePosition(position, dt);
 }

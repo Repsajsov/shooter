@@ -156,9 +156,17 @@ int main()
       Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
 
   targets.push_back(
-      Target(Vector3{-3.0f, 1.0f, 0.0f}, 1.0f, BLUE, 10,
+      Target(Vector3{0.0f, 1.0f, 3.0f}, 1.0f, PURPLE, 10,
+             Routine{Behaviour::LINEAR(5.0f, Vector3{1, 0, 0}, 3.0f),
+                     Behaviour::LINEAR(5.0f, Vector3{-1, 0, 0}, 3.0f)}));
+
+
+  targets.push_back(
+      Target(Vector3{-3.0f, 1.0f, 0.0f}, 0.1f, BLUE, 10,
              Routine{Behaviour::STATIC(1.0f),
-                     Behaviour::LINEAR(5.0f, Vector3{1, 0.39, 0}, 5.0f)}));
+                     Behaviour::LINEAR(5.0f, Vector3{1, 0.39, 0}, 5.0f),
+                     Behaviour::STATIC(2.0f),
+                     Behaviour::LINEAR(5.0f, Vector3{-1, -0.39, 0}, 5.0f)}));
 
   while (!WindowShouldClose())
   {
