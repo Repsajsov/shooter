@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++23
+CXXFLAGS = -Wall -Wextra -std=c++23 $(shell pkg-config nlohmann_json)
 TARGET = game
 
 SRCS = $(wildcard *.cpp)

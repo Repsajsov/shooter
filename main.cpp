@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <vector>
 
 #include "config.h"
@@ -9,13 +11,13 @@
 #include "rlgl.h"
 #include "target.h"
 
-
 enum class Mode
 {
   EDIT,
   PLAY
 };
 
+nlohmann::json data = nlohmann::json::parse(std::ifstream("scenario.json"));
 
 void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
 {
@@ -124,6 +126,20 @@ float horizontalToVerticalFOV(float hFOVDegrees, float aspectRatio)
   return vFOVRadians * RAD2DEG;
 }
 
+Color stringToColor(const std::string& s)
+{
+  if (s == "RED") return RED;
+  if (s == "BLUE") return BLUE;
+  if (s == "PURPLE") return PURPLE;
+  return GRAY;
+}
+
+BehaviourType stringToBehaviourType(const std::string& s)
+{
+  if (s == "STATIC") return BehaviourType::STATIC;
+  if (s == "LINEAR") return BehaviourType::LINEAR;
+  return BehaviourType::STATIC;
+}
 
 int main()
 {
@@ -145,41 +161,33 @@ int main()
   float yaw = 0.0f;
   float pitch = 0.0f;
 
+  std::vector<Plane> roomBounds;
+  for (auto& b : data["bounds"])
+  {
+    Plane plane{Vector3{b["point"][0], b["point"][1], b["point"][2]},
+                Vector3{b["normal"][0], b["normal"][1], b["normal"][2]}};
+    roomBounds.push_back(plane);
+  }
 
-  // room
-  std::vector<Plane> roomBounds = {
-      {Vector3{0, 0, 0}, Vector3{0, 1, 0}},
-      {Vector3{0, 10, 0}, Vector3{0, -1, 0}},
-      {Vector3{-10, 0, 0}, Vector3{1, 0, 0}},
-      {Vector3{10, 0, 0}, Vector3{-1, 0, 0}},
-      {Vector3{0, 0, -10}, Vector3{0, 0, 1}},
-      {Vector3{0, 0, 10}, Vector3{0, 0, -1}},
-  };
-
-
-  // targets
   std::vector<Target> targets;
-  targets.push_back(
-      Target(Vector3{0.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
-  targets.push_back(
-      Target(Vector3{3.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
-  targets.push_back(
-      Target(Vector3{6.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
-  targets.push_back(
-      Target(Vector3{9.0f, 1.0f, 0.0f}, 1.0f, RED, 10, Routine{}));
+  for (auto& t : data["targets"])
+  {
+    Vector3 position{t["position"][0], t["position"][1], t["position"][2]};
+    float radius = t["radius"];
+    Color color = stringToColor(t["color"]);
+    int health = t["health"];
 
-  targets.push_back(
-      Target(Vector3{0.0f, 1.0f, 3.0f}, 1.0f, PURPLE, 10,
-             Routine{Behaviour::LINEAR(5.0f, Vector3{1, 0, 0}, 3.0f),
-                     Behaviour::LINEAR(5.0f, Vector3{-1, 0, 0}, 3.0f)}));
-
-
-  targets.push_back(
-      Target(Vector3{-3.0f, 1.0f, 0.0f}, 0.1f, BLUE, 10,
-             Routine{Behaviour::STATIC(1.0f),
-                     Behaviour::LINEAR(5.0f, Vector3{1, 0.39, 0}, 5.0f),
-                     Behaviour::STATIC(2.0f),
-                     Behaviour::LINEAR(5.0f, Vector3{-1, -0.39, 0}, 5.0f)}));
+    std::vector<Behaviour> steps;
+    for (auto& b : t["routine"])
+    {
+      Behaviour behaviour{
+          stringToBehaviourType(b["type"]), b["duration"],
+          Vector3{b["direction"][0], b["direction"][1], b["direction"][2]},
+          b["speed"]};
+      steps.push_back(behaviour);
+    }
+    targets.push_back(Target(position, radius, color, health, Routine(steps)));
+  }
 
   while (!WindowShouldClose())
   {
@@ -209,5 +217,6 @@ int main()
   }
 
   CloseWindow();
+
   return 0;
 }

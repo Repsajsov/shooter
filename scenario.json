@@ -1,0 +1,61 @@
+{
+  "bounds": [
+    { "point": [0, 0, 0], "normal": [0, 1, 0] },
+    { "point": [0, 10, 0], "normal": [0, -1, 0] },
+    { "point": [-10, 0, 0], "normal": [1, 0, 0] },
+    { "point": [10, 0, 0], "normal": [-1, 0, 0] },
+    { "point": [0, 0, -10], "normal": [0, 0, 1] },
+    { "point": [0, 0, 10], "normal": [0, 0, -1] }
+  ],
+
+  "targets": [
+    {
+      "position": [0, 1, 0],
+      "radius": 1,
+      "color": "RED",
+      "health": 10,
+      "routine": [
+        {
+          "type": "STATIC",
+          "duration": 1,
+          "direction": [0, 0, 0],
+          "speed": 0
+        }
+      ]
+    },
+    {
+      "position": [3, 1, 0],
+      "radius": 1,
+      "color": "RED",
+      "health": 10,
+      "routine": [
+        {
+          "type": "STATIC",
+          "duration": 1,
+          "direction": [0, 0, 0],
+          "speed": 0
+        }
+      ]
+    },
+    {
+      "position": [-3, 1, 0],
+      "radius": 0.1,
+      "color": "BLUE",
+      "health": 10,
+      "routine": [
+        {
+          "type": "LINEAR",
+          "duration": 3,
+          "direction": [1, 0.4, 0],
+          "speed": 5
+        },
+        {
+          "type": "STATIC",
+          "duration": 1,
+          "direction": [0, 0, 0],
+          "speed": 0
+        }
+      ]
+    }
+  ]
+}

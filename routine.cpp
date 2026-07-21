@@ -16,8 +16,8 @@ Routine::Routine() : steps(), currentIndex(0), timeInStep(0.0f)
 {
 }
 
-Routine::Routine(std::initializer_list<Behaviour> steps)
-    : steps(steps), currentIndex(0), timeInStep(0.0f)
+Routine::Routine(std::vector<Behaviour> steps)
+    : steps(std::move(steps)), currentIndex(0), timeInStep(0.0f)
 {
 }
 

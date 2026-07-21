@@ -1,7 +1,6 @@
 #ifndef ROUTINE_H
 #define ROUTINE_H
 
-#include <initializer_list>
 #include <vector>
 
 #include "bounds.h"
@@ -37,7 +36,7 @@ private:
 
 public:
   Routine();
-  Routine(std::initializer_list<Behaviour> steps);
+  Routine(std::vector<Behaviour> steps);
   void update(float dt);
   Vector3 computePosition(Vector3 position, float dt) const;
   void reflectCurrentDirection(Vector3 normal);
