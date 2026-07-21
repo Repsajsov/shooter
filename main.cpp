@@ -109,13 +109,15 @@ void updateMode(Mode& mode, InputState& input)
 }
 
 void update(Mode& mode, Camera& camera, InputState& input, float& yaw,
-            float& pitch, std::vector<Target>& targets)
+            float& pitch, std::vector<Target>& targets, float dt,
+            const std::vector<Plane>& bounds)
 {
   updateMode(mode, input);
   if (mode == Mode::PLAY)
   {
     updateLook(camera, input, yaw, pitch);
     updateShooting(camera, input, targets);
+    for (auto& t : targets) t.update(dt, bounds);
   }
 }
 
@@ -126,6 +128,11 @@ float horizontalToVerticalFOV(float hFOVDegrees, float aspectRatio)
   return vFOVRadians * RAD2DEG;
 }
 
+Vector3 loadVector3(const nlohmann::json& arr)
+{
+  return Vector3{arr[0], arr[1], arr[2]};
+}
+
 Color stringToColor(const std::string& s)
 {
   if (s == "RED") return RED;
@@ -134,11 +141,86 @@ Color stringToColor(const std::string& s)
   return GRAY;
 }
 
+
 BehaviourType stringToBehaviourType(const std::string& s)
 {
   if (s == "STATIC") return BehaviourType::STATIC;
   if (s == "LINEAR") return BehaviourType::LINEAR;
   return BehaviourType::STATIC;
+}
+
+std::vector<Plane> loadBounds(const nlohmann::json& data)
+{
+  std::vector<Plane> bounds;
+  for (auto& b : data["bounds"])
+  {
+    Plane plane{
+        loadVector3(b["point"]),
+        Vector3Normalize(loadVector3(b["normal"])),
+    };
+    bounds.push_back(plane);
+  }
+  return bounds;
+}
+
+std::vector<Target> loadTargets(const nlohmann::json& data)
+{
+  std::vector<Target> targets;
+  for (auto& t : data["targets"])
+  {
+    std::vector<Behaviour> routine;
+    for (auto& b : t["routine"])
+    {
+      Behaviour behaviour{stringToBehaviourType(b["type"]), b["duration"],
+                          loadVector3(b["direction"]), b["speed"]};
+      routine.push_back(behaviour);
+    }
+    targets.push_back(Target(loadVector3(t["position"]), t["radius"],
+                             stringToColor(t["color"]), t["health"],
+                             Routine(routine)));
+  }
+  return targets;
+}
+
+void drawPlaneGrid(const Plane& plane, float size, int divisions, Color color)
+{
+  Vector3 up =
+      fabsf(plane.normal.y) < 0.99f ? Vector3{0, 1, 0} : Vector3{1, 0, 0};
+  Vector3 tangent = Vector3Normalize(Vector3CrossProduct(up, plane.normal));
+  Vector3 bitangent = Vector3CrossProduct(plane.normal, tangent);
+  float step = (2.0f * size) / divisions;
+  for (int i = 0; i <= divisions; i++)
+  {
+    float offset = -size + i * step;
+    Vector3 a1 =
+        Vector3Add(plane.point, Vector3Add(Vector3Scale(tangent, offset),
+                                           Vector3Scale(bitangent, -size)));
+    Vector3 a2 =
+        Vector3Add(plane.point, Vector3Add(Vector3Scale(tangent, offset),
+                                           Vector3Scale(bitangent, size)));
+    DrawLine3D(a1, a2, color);
+    Vector3 b1 =
+        Vector3Add(plane.point, Vector3Add(Vector3Scale(bitangent, offset),
+                                           Vector3Scale(tangent, -size)));
+    Vector3 b2 =
+        Vector3Add(plane.point, Vector3Add(Vector3Scale(bitangent, offset),
+                                           Vector3Scale(tangent, size)));
+    DrawLine3D(b1, b2, color);
+  }
+}
+
+void draw(const Camera& camera, const std::vector<Target>& targets,
+          const std::vector<Plane>& bounds)
+{
+  BeginDrawing();
+  ClearBackground(RAYWHITE);
+  BeginMode3D(camera);
+  for (const auto& b : bounds) drawPlaneGrid(b, 10.0f, 20, LIGHTGRAY);
+  for (const auto& t : targets) t.draw();
+  EndMode3D();
+  drawCrosshair();
+  DrawFPS(10, 10);
+  EndDrawing();
 }
 
 int main()
@@ -161,59 +243,23 @@ int main()
   float yaw = 0.0f;
   float pitch = 0.0f;
 
-  std::vector<Plane> roomBounds;
-  for (auto& b : data["bounds"])
-  {
-    Plane plane{Vector3{b["point"][0], b["point"][1], b["point"][2]},
-                Vector3{b["normal"][0], b["normal"][1], b["normal"][2]}};
-    roomBounds.push_back(plane);
-  }
 
-  std::vector<Target> targets;
-  for (auto& t : data["targets"])
-  {
-    Vector3 position{t["position"][0], t["position"][1], t["position"][2]};
-    float radius = t["radius"];
-    Color color = stringToColor(t["color"]);
-    int health = t["health"];
+  std::vector<Plane> bounds = loadBounds(data);
+  std::vector<Target> targets = loadTargets(data);
 
-    std::vector<Behaviour> steps;
-    for (auto& b : t["routine"])
-    {
-      Behaviour behaviour{
-          stringToBehaviourType(b["type"]), b["duration"],
-          Vector3{b["direction"][0], b["direction"][1], b["direction"][2]},
-          b["speed"]};
-      steps.push_back(behaviour);
-    }
-    targets.push_back(Target(position, radius, color, health, Routine(steps)));
-  }
 
   while (!WindowShouldClose())
   {
+    float dt = GetFrameTime();
+
     // inputs
     input.gatherInput();
 
     // update
-    float dt = GetFrameTime();
-    update(mode, camera, input, yaw, pitch, targets);
-    for (Target& target : targets) target.update(dt, roomBounds);
+    update(mode, camera, input, yaw, pitch, targets, dt, bounds);
 
     // draw
-    BeginDrawing();
-    ClearBackground(RAYWHITE);
-
-    BeginMode3D(camera);
-
-    DrawPlane((Vector3){0.0f, 0.0f, 0.0f}, (Vector2){20.0f, 20.0f}, LIGHTGRAY);
-    DrawGrid(20, 1.0f);
-    for (Target& target : targets) target.draw();
-
-    EndMode3D();
-    drawCrosshair();
-
-    DrawFPS(10, 10);
-    EndDrawing();
+    draw(camera, targets, bounds);
   }
 
   CloseWindow();
