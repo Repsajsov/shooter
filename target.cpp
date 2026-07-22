@@ -38,3 +38,8 @@ void Target::update(float dt, const std::vector<Plane>& bounds)
       routine.reflectCurrentDirection(plane.normal);
   }
 }
+
+Vector3 Target::getPosition() const
+{
+  return position;
+}

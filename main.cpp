@@ -39,32 +39,89 @@ void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
   camera.target.z = camera.position.z + forward.z;
 }
 
+float distancePointToRay(Vector3 point, const Ray& ray)
+{
+  Vector3 toPoint = Vector3Subtract(point, ray.position);
+  float projectionLength = Vector3DotProduct(toPoint, ray.direction);
+  Vector3 closestPointOnRay =
+      Vector3Add(ray.position, Vector3Scale(ray.direction, projectionLength));
+  return Vector3Distance(point, closestPointOnRay);
+}
 
-struct HitResult
+struct TargetProbe
 {
   int index;
-  float distance;
+  float distanceFromCenter;
+  bool hit;
+  Vector3 point;
 };
 
-std::vector<HitResult> getSortedHits(const Ray& ray,
-                                     std::vector<Target>& targets)
+std::vector<TargetProbe> probeTargets(const Ray& ray,
+                                      std::vector<Target>& targets)
 {
-  std::vector<HitResult> hits;
+  std::vector<TargetProbe> probes;
   for (int i = 0; i < (int)targets.size(); i++)
   {
+    float d = distancePointToRay(targets[i].getPosition(), ray);
     RayCollision collision = targets[i].getCollision(ray);
-    if (collision.hit)
+    probes.push_back({i, d, collision.hit, collision.point});
+  }
+  return probes;
+}
+
+struct FrameRecord
+{
+
+  int frameNumber;
+  Vector2 mouseDelta;
+  float jaggedness;
+  bool wasShot;
+  bool hit;
+  float distanceFromCenter;
+};
+
+class SessionStats
+{
+private:
+  int shotsFired = 0;
+  int shotsHit = 0;
+  int score = 0;
+  int frameCounter = 0;
+  std::vector<FrameRecord> frames;
+
+
+public:
+  void recordFrame(Vector2 mouseDelta, float jaggedness)
+  {
+    frameCounter++;
+    frames.push_back(
+        {frameCounter, mouseDelta, jaggedness, false, false, 0.0f});
+  }
+  void recordShot(float distanceFromCenter, bool hit)
+  {
+    shotsFired++;
+    if (hit) shotsHit++;
+    if (!frames.empty())
     {
-      float worldDistance = Vector3Distance(ray.position, collision.point);
-      hits.push_back({i, worldDistance});
+      frames.back().wasShot = true;
+      frames.back().hit = hit;
+      frames.back().distanceFromCenter = distanceFromCenter;
     }
   }
-  std::sort(hits.begin(), hits.end(), [](const HitResult& a, const HitResult& b)
-            { return a.distance < b.distance; });
-  return hits;
-}
+
+  float accuracy() const
+  {
+    return shotsFired == 0 ? 0.0f : (float)shotsHit / (float)shotsFired;
+  }
+
+  const std::vector<FrameRecord>& getFrames() const
+  {
+    return frames;
+  }
+};
+
 void updateShooting(Camera& camera, InputState& input,
-                    std::vector<Target>& targets)
+                    std::vector<Target>& targets, SessionStats& stats)
 {
   if (!input.shoot) return;
 
@@ -73,19 +130,25 @@ void updateShooting(Camera& camera, InputState& input,
   ray.direction =
       Vector3Normalize(Vector3Subtract(camera.target, camera.position));
 
-  auto hits = getSortedHits(ray, targets);
-  if (hits.empty()) return;
+  auto probes = probeTargets(ray, targets);
+  if (probes.empty()) return;
 
-  int closestIndex = hits.front().index;
-  targets[closestIndex].takeDamage(DAMAGE_PER_HIT);
+  auto closestOverall =
+      std::min_element(probes.begin(), probes.end(),
+                       [](const TargetProbe& a, const TargetProbe& b)
+                       { return a.distanceFromCenter < b.distanceFromCenter; });
+  stats.recordShot(closestOverall->distanceFromCenter, closestOverall->hit);
 
-  if (targets[closestIndex].isDead())
+  auto hitTarget = std::find_if(probes.begin(), probes.end(),
+                                [](const TargetProbe& p) { return p.hit; });
+  if (hitTarget == probes.end()) return;
+
+  targets[hitTarget->index].takeDamage(DAMAGE_PER_HIT);
+  if (targets[hitTarget->index].isDead())
   {
-    targets[closestIndex] = targets.back();
+    targets[hitTarget->index] = targets.back();
     targets.pop_back();
   }
-
-  std::cout << "HIT\n";
 }
 
 void drawCrosshair()
@@ -110,13 +173,15 @@ void updateMode(Mode& mode, InputState& input)
 
 void update(Mode& mode, Camera& camera, InputState& input, float& yaw,
             float& pitch, std::vector<Target>& targets, float dt,
-            const std::vector<Plane>& bounds)
+            const std::vector<Plane>& bounds, SessionStats& stats)
 {
   updateMode(mode, input);
   if (mode == Mode::PLAY)
   {
+    float jaggedness = 0.0f;
+    stats.recordFrame(input.mouseDelta, jaggedness);
     updateLook(camera, input, yaw, pitch);
-    updateShooting(camera, input, targets);
+    updateShooting(camera, input, targets, stats);
     for (auto& t : targets) t.update(dt, bounds);
   }
 }
@@ -140,7 +205,6 @@ Color stringToColor(const std::string& s)
   if (s == "PURPLE") return PURPLE;
   return GRAY;
 }
-
 
 BehaviourType stringToBehaviourType(const std::string& s)
 {
@@ -210,7 +274,7 @@ void drawPlaneGrid(const Plane& plane, float size, int divisions, Color color)
 }
 
 void draw(const Camera& camera, const std::vector<Target>& targets,
-          const std::vector<Plane>& bounds)
+          const std::vector<Plane>& bounds, const SessionStats& stats)
 {
   BeginDrawing();
   ClearBackground(RAYWHITE);
@@ -220,18 +284,36 @@ void draw(const Camera& camera, const std::vector<Target>& targets,
   EndMode3D();
   drawCrosshair();
   DrawFPS(10, 10);
+  DrawText(TextFormat("Accuracy: %.1f%%", stats.accuracy() * 100.0f), 10, 40,
+           20, BLACK);
   EndDrawing();
+}
+
+void writeFramesToCSV(const SessionStats& stats)
+{
+  std::ofstream out("frames.csv");
+  out << "frame,mouseDeltaX,mouseDeltaY,jaggedness,wasShot,hit,"
+         "distanceFromCenter\n";
+  for (const FrameRecord& f : stats.getFrames())
+  {
+    out << f.frameNumber << "," << f.mouseDelta.x << "," << f.mouseDelta.y
+        << "," << f.jaggedness << "," << (f.wasShot ? "true" : "false") << ",";
+    if (f.wasShot)
+      out << (f.hit ? "true" : "false") << "," << f.distanceFromCenter;
+    else out << ",";
+    out << "\n";
+  }
 }
 
 int main()
 {
-  // stuff before gameloop
   Mode mode = Mode::PLAY;
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "shooter");
   SetTargetFPS(FPS);
   DisableCursor();
 
   InputState input;
+  SessionStats stats;
 
   Camera camera = {};
   camera.position = (Vector3){0.0f, 1.0f, 10.0f};
@@ -243,26 +325,18 @@ int main()
   float yaw = 0.0f;
   float pitch = 0.0f;
 
-
   std::vector<Plane> bounds = loadBounds(data);
   std::vector<Target> targets = loadTargets(data);
-
 
   while (!WindowShouldClose())
   {
     float dt = GetFrameTime();
-
-    // inputs
     input.gatherInput();
-
-    // update
-    update(mode, camera, input, yaw, pitch, targets, dt, bounds);
-
-    // draw
-    draw(camera, targets, bounds);
+    update(mode, camera, input, yaw, pitch, targets, dt, bounds, stats);
+    draw(camera, targets, bounds, stats);
   }
 
+  writeFramesToCSV(stats);
   CloseWindow();
-
   return 0;
 }

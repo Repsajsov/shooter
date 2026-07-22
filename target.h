@@ -17,6 +17,7 @@ private:
   int maxHealth;
   Routine routine;
 
+
 public:
   Target(Vector3 position, float radius, Color color, int health,
          Routine routine);
@@ -25,6 +26,7 @@ public:
   void takeDamage(int amount);
   bool isDead() const;
   void update(float dt, const std::vector<Plane>& bounds);
+  Vector3 getPosition() const;
 };
 
 #endif
