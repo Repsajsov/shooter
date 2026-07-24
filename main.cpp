@@ -18,6 +18,15 @@ enum class Mode
 };
 
 
+float getAngleFromCenter(Vector3 targetPosition, const Ray& ray)
+{
+  Vector3 toTarget =
+      Vector3Normalize(Vector3Subtract(targetPosition, ray.position));
+  float dot = Vector3DotProduct(ray.direction, toTarget);
+  dot = std::clamp(dot, -1.0f, 1.0f);
+  return acosf(dot) * RAD2DEG;
+}
+
 Vector3 pickRandomPosition(Vector3 min, Vector3 max)
 {
 
@@ -66,6 +75,7 @@ struct TargetProbe
 {
   int index;
   float distanceFromCenter;
+  float angleFromCenter;
   bool hit;
   Vector3 point;
 };
@@ -77,8 +87,9 @@ std::vector<TargetProbe> probeTargets(const Ray& ray,
   for (int i = 0; i < (int)targets.size(); i++)
   {
     float d = distancePointToRay(targets[i].getPosition(), ray);
+    float a = getAngleFromCenter(targets[i].getPosition(), ray);
     RayCollision collision = targets[i].getCollision(ray);
-    probes.push_back({i, d, collision.hit, collision.point});
+    probes.push_back({i, d, a, collision.hit, collision.point});
   }
   return probes;
 }
@@ -92,6 +103,7 @@ struct FrameRecord
   bool wasShot;
   bool hit;
   float distanceFromCenter;
+  float angleFromCenter;
 };
 
 class SessionStats
@@ -109,9 +121,9 @@ public:
   {
     frameCounter++;
     frames.push_back(
-        {frameCounter, mouseDelta, jaggedness, false, false, 0.0f});
+        {frameCounter, mouseDelta, jaggedness, false, false, 0.0f, 0.0f});
   }
-  void recordShot(float distanceFromCenter, bool hit)
+  void recordShot(float distanceFromCenter, float angleFromCenter, bool hit)
   {
     shotsFired++;
     if (hit)
@@ -124,6 +136,7 @@ public:
       frames.back().wasShot = true;
       frames.back().hit = hit;
       frames.back().distanceFromCenter = distanceFromCenter;
+      frames.back().angleFromCenter = angleFromCenter;
     }
   }
 
@@ -161,7 +174,8 @@ void updateShooting(Camera& camera, InputState& input,
       std::min_element(probes.begin(), probes.end(),
                        [](const TargetProbe& a, const TargetProbe& b)
                        { return a.distanceFromCenter < b.distanceFromCenter; });
-  stats.recordShot(closestOverall->distanceFromCenter, closestOverall->hit);
+  stats.recordShot(closestOverall->distanceFromCenter,
+                   closestOverall->angleFromCenter, closestOverall->hit);
 
   auto hitTarget = std::find_if(probes.begin(), probes.end(),
                                 [](const TargetProbe& p) { return p.hit; });
@@ -365,14 +379,15 @@ void writeFramesToCSV(const SessionStats& stats)
 {
   std::ofstream out("frames.csv");
   out << "frame,mouseDeltaX,mouseDeltaY,jaggedness,wasShot,hit,"
-         "distanceFromCenter\n";
+         "distanceFromCenter,angleFromCenter\n";
   for (const FrameRecord& f : stats.getFrames())
   {
     out << f.frameNumber << "," << f.mouseDelta.x << "," << f.mouseDelta.y
         << "," << f.jaggedness << "," << (f.wasShot ? "true" : "false") << ",";
     if (f.wasShot)
-      out << (f.hit ? "true" : "false") << "," << f.distanceFromCenter;
-    else out << ",";
+      out << (f.hit ? "true" : "false") << "," << f.distanceFromCenter << ","
+          << f.angleFromCenter;
+    else out << "," << ",";
     out << "\n";
   }
 }
