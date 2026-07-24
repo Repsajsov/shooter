@@ -31,6 +31,7 @@ class Routine
 
 private:
   std::vector<Behaviour> steps;
+  std::vector<Behaviour> originalSteps;
   int currentIndex;
   float timeInStep;
 
@@ -40,6 +41,7 @@ public:
   void update(float dt);
   Vector3 computePosition(Vector3 position, float dt) const;
   void reflectCurrentDirection(Vector3 normal);
+  void reset();
 };
 
 #endif

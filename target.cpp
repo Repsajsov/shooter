@@ -1,9 +1,10 @@
 #include "target.h"
 
 Target::Target(Vector3 position, float radius, Color color, int health,
-               Routine routine)
+               Routine routine, bool respawns, PositionMode positionMode)
     : basePosition(position), position(position), radius(radius), color(color),
-      health(health), maxHealth(health), routine(routine)
+      baseHealth(health), health(health), maxHealth(health), routine(routine),
+      respawns(respawns), positionMode(positionMode)
 {
 }
 
@@ -28,6 +29,11 @@ bool Target::isDead() const
   return health <= 0;
 }
 
+bool Target::shouldRespawn() const
+{
+  return respawns;
+}
+
 void Target::update(float dt, const std::vector<Plane>& bounds)
 {
   routine.update(dt);
@@ -42,4 +48,18 @@ void Target::update(float dt, const std::vector<Plane>& bounds)
 Vector3 Target::getPosition() const
 {
   return position;
+}
+
+
+void Target::respawn(Vector3 newPosition)
+{
+  health = baseHealth;
+  position = newPosition;
+  basePosition = newPosition;
+  routine.reset();
+}
+
+PositionMode Target::getPositionMode() const
+{
+  return positionMode;
 }

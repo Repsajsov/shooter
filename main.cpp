@@ -17,6 +17,20 @@ enum class Mode
   PLAY
 };
 
+
+Vector3 pickRandomPosition(Vector3 min, Vector3 max)
+{
+
+  float x =
+      min.x + ((float)GetRandomValue(0, 100000) / 100000.0f) * (max.x - min.x);
+  float y =
+      min.y + ((float)GetRandomValue(0, 100000) / 100000.0f) * (max.y - min.y);
+  float z =
+      min.z + ((float)GetRandomValue(0, 100000) / 100000.0f) * (max.z - min.z);
+  return Vector3{x, y, z};
+}
+
+
 nlohmann::json data = nlohmann::json::parse(std::ifstream("scenario.json"));
 
 void updateLook(Camera& camera, InputState& input, float& yaw, float& pitch)
@@ -100,7 +114,11 @@ public:
   void recordShot(float distanceFromCenter, bool hit)
   {
     shotsFired++;
-    if (hit) shotsHit++;
+    if (hit)
+    {
+      shotsHit++;
+      score++;
+    }
     if (!frames.empty())
     {
       frames.back().wasShot = true;
@@ -118,10 +136,16 @@ public:
   {
     return frames;
   }
+
+  int getScore() const
+  {
+    return score;
+  }
 };
 
 void updateShooting(Camera& camera, InputState& input,
-                    std::vector<Target>& targets, SessionStats& stats)
+                    std::vector<Target>& targets, SessionStats& stats,
+                    Vector3 roomMin, Vector3 roomMax)
 {
   if (!input.shoot) return;
 
@@ -146,8 +170,19 @@ void updateShooting(Camera& camera, InputState& input,
   targets[hitTarget->index].takeDamage(DAMAGE_PER_HIT);
   if (targets[hitTarget->index].isDead())
   {
-    targets[hitTarget->index] = targets.back();
-    targets.pop_back();
+    if (targets[hitTarget->index].shouldRespawn())
+    {
+      Vector3 newPosition =
+          (targets[hitTarget->index].getPositionMode() == PositionMode::RANDOM)
+              ? pickRandomPosition(roomMin, roomMax)
+              : targets[hitTarget->index].getPosition();
+      targets[hitTarget->index].respawn(newPosition);
+    }
+    else
+    {
+      targets[hitTarget->index] = targets.back();
+      targets.pop_back();
+    }
   }
 }
 
@@ -173,7 +208,8 @@ void updateMode(Mode& mode, InputState& input)
 
 void update(Mode& mode, Camera& camera, InputState& input, float& yaw,
             float& pitch, std::vector<Target>& targets, float dt,
-            const std::vector<Plane>& bounds, SessionStats& stats)
+            const std::vector<Plane>& bounds, SessionStats& stats,
+            Vector3 roomMin, Vector3 roomMax)
 {
   updateMode(mode, input);
   if (mode == Mode::PLAY)
@@ -181,7 +217,7 @@ void update(Mode& mode, Camera& camera, InputState& input, float& yaw,
     float jaggedness = 0.0f;
     stats.recordFrame(input.mouseDelta, jaggedness);
     updateLook(camera, input, yaw, pitch);
-    updateShooting(camera, input, targets, stats);
+    updateShooting(camera, input, targets, stats, roomMin, roomMax);
     for (auto& t : targets) t.update(dt, bounds);
   }
 }
@@ -227,21 +263,56 @@ std::vector<Plane> loadBounds(const nlohmann::json& data)
   return bounds;
 }
 
-std::vector<Target> loadTargets(const nlohmann::json& data)
+Vector3 getRandomDirection()
+{
+  float x = (float)GetRandomValue(-100000, 100000);
+  float y = (float)GetRandomValue(-100000, 100000);
+  float z = (float)GetRandomValue(-100000, 100000);
+  return Vector3Normalize(Vector3{x, y, z});
+}
+
+PositionMode stringToPositionMode(const std::string& pm)
+{
+  if (pm == "FIXED") return PositionMode::FIXED;
+  if (pm == "RANDOM") return PositionMode::RANDOM;
+  return PositionMode::RANDOM;
+}
+
+std::vector<Target> loadTargets(const nlohmann::json& data, Vector3 roomMin,
+                                Vector3 roomMax)
 {
   std::vector<Target> targets;
   for (auto& t : data["targets"])
   {
-    std::vector<Behaviour> routine;
-    for (auto& b : t["routine"])
+    PositionMode positionMode = stringToPositionMode(t["positionMode"]);
+    int count = t["count"];
+    for (int n = 0; n < count; n++)
     {
-      Behaviour behaviour{stringToBehaviourType(b["type"]), b["duration"],
-                          loadVector3(b["direction"]), b["speed"]};
-      routine.push_back(behaviour);
+      Vector3 position;
+      switch (positionMode)
+      {
+      case PositionMode::FIXED:
+        position = loadVector3(t["position"]);
+        break;
+      case PositionMode::RANDOM:
+        position = pickRandomPosition(roomMin, roomMax);
+        break;
+      }
+      std::vector<Behaviour> routine;
+      for (auto& b : t["routine"])
+      {
+        Vector3 direction =
+            (b["direction"].is_string() && b["direction"] == "random")
+                ? getRandomDirection()
+                : Vector3Normalize(loadVector3(b["direction"]));
+        Behaviour behaviour{stringToBehaviourType(b["type"]), b["duration"],
+                            direction, b["speed"]};
+        routine.push_back(behaviour);
+      }
+      targets.push_back(Target(position, t["radius"], stringToColor(t["color"]),
+                               t["health"], Routine(routine), t["respawns"],
+                               positionMode));
     }
-    targets.push_back(Target(loadVector3(t["position"]), t["radius"],
-                             stringToColor(t["color"]), t["health"],
-                             Routine(routine)));
   }
   return targets;
 }
@@ -286,6 +357,7 @@ void draw(const Camera& camera, const std::vector<Target>& targets,
   DrawFPS(10, 10);
   DrawText(TextFormat("Accuracy: %.1f%%", stats.accuracy() * 100.0f), 10, 40,
            20, BLACK);
+  DrawText(TextFormat("Score: %i", stats.getScore()), 200, 40, 20, BLACK);
   EndDrawing();
 }
 
@@ -326,13 +398,16 @@ int main()
   float pitch = 0.0f;
 
   std::vector<Plane> bounds = loadBounds(data);
-  std::vector<Target> targets = loadTargets(data);
+  Vector3 roomMin = loadVector3(data["roomBounds"]["min"]);
+  Vector3 roomMax = loadVector3(data["roomBounds"]["max"]);
+  std::vector<Target> targets = loadTargets(data, roomMin, roomMax);
 
   while (!WindowShouldClose())
   {
     float dt = GetFrameTime();
     input.gatherInput();
-    update(mode, camera, input, yaw, pitch, targets, dt, bounds, stats);
+    update(mode, camera, input, yaw, pitch, targets, dt, bounds, stats, roomMin,
+           roomMax);
     draw(camera, targets, bounds, stats);
   }
 

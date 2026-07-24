@@ -17,7 +17,8 @@ Routine::Routine() : steps(), currentIndex(0), timeInStep(0.0f)
 }
 
 Routine::Routine(std::vector<Behaviour> steps)
-    : steps(std::move(steps)), currentIndex(0), timeInStep(0.0f)
+    : steps(steps), originalSteps(std::move(steps)), currentIndex(0),
+      timeInStep(0.0f)
 {
 }
 
@@ -53,4 +54,11 @@ void Routine::reflectCurrentDirection(Vector3 normal)
   if (steps.empty()) return;
   Behaviour& step = steps[currentIndex];
   step.direction = reflect(step.direction, normal);
+}
+
+void Routine::reset()
+{
+  steps = originalSteps;
+  currentIndex = 0;
+  timeInStep = 0.0f;
 }
