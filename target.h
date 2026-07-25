@@ -1,7 +1,6 @@
 #ifndef TARGET_H
 #define TARGET_H
 
-
 #include "raylib.h"
 #include "raymath.h"
 #include "routine.h"
@@ -11,7 +10,6 @@ enum class PositionMode
   FIXED,
   RANDOM
 };
-
 
 class Target
 {
@@ -27,7 +25,6 @@ private:
   bool respawns;
   PositionMode positionMode;
 
-
 public:
   Target(Vector3 position, float radius, Color color, int health,
          Routine routine, bool respawns, PositionMode positionMode);
@@ -38,7 +35,7 @@ public:
   void update(float dt, const std::vector<Plane>& bounds);
   Vector3 getPosition() const;
   bool shouldRespawn() const;
-  void respawn(Vector3 newPosition);
+  void reset(Vector3 newPosition);
   PositionMode getPositionMode() const;
 };
 

@@ -1,3 +1,7 @@
 game
 *.o
+*.csv
+*.py
+*.md
+
 

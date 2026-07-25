@@ -7,7 +7,6 @@
 #include "raylib.h"
 #include "raymath.h"
 
-
 enum class BehaviourType
 {
   STATIC,
@@ -22,13 +21,12 @@ struct Behaviour
   Vector3 direction;
   float speed;
 
-  static Behaviour STATIC(float duration);
-  static Behaviour LINEAR(float duration, Vector3 direction, float speed);
+  static Behaviour Static(float duration);
+  static Behaviour Linear(float duration, Vector3 direction, float speed);
 };
 
 class Routine
 {
-
 private:
   std::vector<Behaviour> steps;
   std::vector<Behaviour> originalSteps;

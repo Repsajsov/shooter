@@ -1,60 +1,29 @@
 {
+  "roomBounds": { "min": [-9, 0.5, -9], "max": [9, 9.5, 9] },
   "bounds": [
     { "point": [0, 0, 0], "normal": [0, 1, 0] },
     { "point": [0, 10, 0], "normal": [0, -1, 0] },
-    { "point": [-10, 5, 0], "normal": [1, 0, 0] },
-    { "point": [10, 5, 0], "normal": [-1, 0, 0] },
-    { "point": [0, 5, -10], "normal": [0, 0, 1] },
-    { "point": [0, 5, 10], "normal": [0, 0, -1] }
+    { "point": [-10, 0, 0], "normal": [1, 0, 0] },
+    { "point": [10, 0, 0], "normal": [-1, 0, 0] },
+    { "point": [0, 0, -10], "normal": [0, 0, 1] },
+    { "point": [0, 0, 10], "normal": [0, 0, -1] }
   ],
-
   "targets": [
     {
-      "position": [0, 1, 0],
-      "radius": 1,
+      "positionMode": "RANDOM",
+      "count": 6,
+      "radius": 0.5,
       "color": "RED",
       "health": 10,
+      "respawns": true,
       "routine": [
         {
           "type": "STATIC",
-          "duration": 1,
+          "duration": 0.5,
           "direction": [0, 0, 0],
           "speed": 0
-        }
-      ]
-    },
-    {
-      "position": [3, 1, 0],
-      "radius": 1,
-      "color": "RED",
-      "health": 10,
-      "routine": [
-        {
-          "type": "STATIC",
-          "duration": 1,
-          "direction": [0, 0, 0],
-          "speed": 0
-        }
-      ]
-    },
-    {
-      "position": [-3, 1, 0],
-      "radius": 0.08,
-      "color": "BLUE",
-      "health": 10,
-      "routine": [
-        {
-          "type": "LINEAR",
-          "duration": 3,
-          "direction": [1, 0.5, -0.7],
-          "speed": 7
         },
-        {
-          "type": "STATIC",
-          "duration": 0.2,
-          "direction": [0, 0, 0],
-          "speed": 0
-        }
+        { "type": "LINEAR", "duration": 2, "direction": "random", "speed": 3 }
       ]
     }
   ]

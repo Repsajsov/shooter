@@ -50,8 +50,7 @@ Vector3 Target::getPosition() const
   return position;
 }
 
-
-void Target::respawn(Vector3 newPosition)
+void Target::reset(Vector3 newPosition)
 {
   health = baseHealth;
   position = newPosition;

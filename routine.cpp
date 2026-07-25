@@ -1,13 +1,12 @@
 #include "routine.h"
 
-
-Behaviour Behaviour::STATIC(float duration)
+Behaviour Behaviour::Static(float duration)
 {
   return Behaviour{BehaviourType::STATIC, duration, Vector3{0.0f, 0.0f, 0.0f},
                    0.0f};
 }
 
-Behaviour Behaviour::LINEAR(float duration, Vector3 direction, float speed)
+Behaviour Behaviour::Linear(float duration, Vector3 direction, float speed)
 {
   return Behaviour{BehaviourType::LINEAR, duration, direction, speed};
 }
